@@ -18,3 +18,7 @@ docker exec -it 6567999825b00a8c7342dd1505d2bf5c74c3cfb34b71d2df0d9b2f786d07abbf
 dotnet tool install --global dotnet-ef
 dotnet ef migrations add InitialCreate
 dotnet ef database update # this execute the migrations
+
+
+dotnet new nunit -o SimpleApi.Tests
+dotnet sln add SimpleApi.Tests/SimpleApi.Tests.csproj
