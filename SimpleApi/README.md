@@ -12,7 +12,9 @@ https://github.com/Xabaril/AspNetCore.Diagnostics.HealthChecks
 
 
 docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=Passw@rd1' -p 1433:1433 -d mcr.microsoft.com/mssql/server:2017-latest
-docker exec -it 4e79b8bbb959 /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P Passw@rd1
+docker exec -it 6567999825b00a8c7342dd1505d2bf5c74c3cfb34b71d2df0d9b2f786d07abbf /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P Passw@rd1 -Q 'CREATE DATABASE simpledb;GO'
 
-docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=Passw@rd1' -p 1433:1433 simplesqlserver
-docker exec -it 4e79b8bbb959 /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P Passw@rd1
+
+dotnet tool install --global dotnet-ef
+dotnet ef migrations add InitialCreate
+dotnet ef database update # this execute the migrations
