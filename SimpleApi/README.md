@@ -19,6 +19,18 @@ dotnet tool install --global dotnet-ef
 dotnet ef migrations add InitialCreate
 dotnet ef database update # this execute the migrations
 
-
+# Add nunit test project
 dotnet new nunit -o SimpleApi.Tests
 dotnet sln add SimpleApi.Tests/SimpleApi.Tests.csproj
+
+# Scaffold a controller
+dotnet add package Microsoft.VisualStudio.Web.CodeGeneration.Design
+dotnet add package Microsoft.EntityFrameworkCore.Design
+dotnet tool install --global dotnet-aspnet-codegenerator
+export PATH="$PATH:/Users/nicopaez/.dotnet/tools"
+dotnet aspnet-codegenerator controller -name TodoItemsController -async -api -m TodoItem -dc TodoContext -outDir Controllers 
+
+
+curl localhost:5000/api/TodoItems
+curl -X POST -H Content-Type:application/json -d '{"name":"walk dog", "isComplete":true}' localhost:5000/api/TodoItems
+
