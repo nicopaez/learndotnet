@@ -3,7 +3,7 @@
 using System;
 using TechTalk.SpecFlow;
 
-namespace SimpleApi.Specs.Impl1
+namespace SimpleApi.Specs.Impl2
 {
     [Binding]
     public class StepDefinitions
@@ -12,14 +12,14 @@ namespace SimpleApi.Specs.Impl1
         public void WhenICreateATodoItem()
         {
             //ScenarioContext.Current.Pending();
-            Console.WriteLine("Impl1: I create a TodoItem");
+            Console.WriteLine("Impl2: I create a TodoItem");
         }
 
         [Then(@"I get an Id")]
         public void ThenIGetAnId()
         {
             //ScenarioContext.Current.Pending();
-            Console.WriteLine("Impl1: I get an Id");
+            Console.WriteLine("Impl2: I get an Id");
         }
     }
 }

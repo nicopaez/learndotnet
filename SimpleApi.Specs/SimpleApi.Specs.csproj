@@ -16,12 +16,17 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SimpleApi.Specs.Impl1\SimpleApi.Specs.Impl1.csproj" />
+    <ProjectReference Include="..\SimpleApi.Specs.Impl2\SimpleApi.Specs.Impl2.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="specflow.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="todoitem_creation.feature" />
   </ItemGroup>
 
 
