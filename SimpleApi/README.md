@@ -35,3 +35,10 @@ curl localhost:5000/api/TodoItems
 curl -X POST -H Content-Type:application/json -d '{"name":"walk dog", "isComplete":true}' localhost:5000/api/TodoItems
 
 https://www.thereformedprogrammer.net/is-the-repository-pattern-useful-with-entity-framework-core/
+
+
+# Add specflow project
+dotnet new nunit -o SimpleApi.Specs
+dotnet sln add SimpleApi.Specs/SimpleApi.Specs.csproj
+dotnet add package Specflow.NUnit
+dotnet add package SpecFlow.Tools.MsBuild.Generation
