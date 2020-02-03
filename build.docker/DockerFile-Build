@@ -1,0 +1,17 @@
+ARG regurl
+
+FROM $regurl/sonar-netcore:2.2 as build
+
+#ENV http_proxy http://proxybc.gscorp.ad:8080
+#ENV https_proxy https://proxybc.gscorp.ad:8080
+
+WORKDIR /src
+
+COPY . ./
+COPY ./applymodel.sh ./applymodel.sh
+
+RUN rm global.json
+
+RUN dotnet-sonarscanner begin /k:"api-extractaciones" /d:sonar.login="9db8d1fffdb9c6d26d14f2ab0946ade062c24370" /d:sonar.host.url="https://sonarqube.gscorp.ad"
+RUN dotnet build -c Release Extractaciones.sln
+RUN dotnet-sonarscanner end /d:sonar.login="9db8d1fffdb9c6d26d14f2ab0946ade062c24370"

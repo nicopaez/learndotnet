@@ -1,0 +1,26 @@
+version: '3.4'
+
+services:
+  
+  db:
+    image: microsoft/mssql-server-linux
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=34B1dKdXzoUB
+    ports:
+      - "1444:1433"
+  
+  apifirmas:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Acceptance
+      - MY_ENVIRONMENT=Acceptance
+    
+    image: api-extractaciones:latest    
+
+    ports:
+      - "8080:80"
+    
+    depends_on: 
+      - db
+    links:
+      - db:microsoft/mssql-server-linux:lastest

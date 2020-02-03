@@ -20,6 +20,7 @@ namespace SimpleApi.Specs.Impl2
         {
             //ScenarioContext.Current.Pending();
             Console.WriteLine("Impl2: I get an Id");
+            throw new Exception("hey!"); 
         }
     }
 }

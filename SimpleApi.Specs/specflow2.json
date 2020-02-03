@@ -1,0 +1,9 @@
+{
+  "language":
+  {
+    "feature": "en"
+  },
+  "stepAssemblies": [
+    { "assembly": "SimpleApi.Specs.Impl2" }
+  ]
+}

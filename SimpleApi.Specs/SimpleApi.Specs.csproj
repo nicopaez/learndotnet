@@ -29,5 +29,11 @@
     <Content Include="todoitem_creation.feature" />
   </ItemGroup>
 
+<Target Name="poc">
+     <Copy SourceFiles="specflow2.json" OverwriteReadOnlyFiles="true" DestinationFiles="$(OutputPath)\specflow.json" ContinueOnError="true" />
+     <Message Text="hey" />
+     <CallTarget Targets="VSTest" />
+</Target>
+
 
 </Project>

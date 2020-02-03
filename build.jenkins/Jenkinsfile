@@ -1,0 +1,176 @@
+def server = Artifactory.newServer url: 'https://artifactory.gscorp.ad/artifactory', credentialsId: 'artifactory-credentials-extractaciones'
+def props = []
+
+pipeline {
+    agent any
+    
+    post {
+        always {
+            deleteDir()
+        }
+    }	
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    parameters {
+        booleanParam(name: 'ES_CANDIDATO', defaultValue: false, description: 'Indica si la versi�n es candidata de ser promovida a release.')
+    }
+    
+	stages {
+	
+		stage('Init'){
+			steps{
+				script {
+					props = readProperties file: "build.jenkins/config.env"
+					VERSION = sh(label: '', returnStdout: true, script: 'cat ./build.jenkins/VERSION').trim()
+					VOLUMEPATH = "${WORKSPACE}".replace('/var/jenkins_home','/home/bkp/8064')+'/extractacionesLogs'					
+				}				
+				echo "${props.APP_NAME}"
+				echo "${VERSION}"	
+				echo "${VOLUMEPATH}"
+				echo "${props.SONAR_REG}"
+			}
+		}
+		
+		stage('Build Develop Image') {
+            steps {
+				withDockerRegistry(credentialsId: 'artifactory-credentials-extractaciones', url: "http://${props.SONAR_REG}") 
+				{
+					sh("docker build --no-cache --force-rm -t ${props.APP_NAME}:build --build-arg regurl=${props.SONAR_REG} -f ${props.SOURCE}/DockerFile-Build .")
+				}
+			}
+		}
+
+		stage("Testing") {
+			failFast true
+			parallel {			    
+				stage("Unit"){
+				    steps {
+				        sh("docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${VOLUMEPATH}:/TestResults/Unit ${props.APP_NAME}:build dotnet test -c Release --no-build --no-restore --logger:\"xunit;LogFilePath=/TestResults/Unit/Extractaciones.Testing.Unit.xml\" Extractaciones.Testing.Unit")
+				        sh("docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${VOLUMEPATH}:/TestResults/Unit ${props.APP_NAME}:build dotnet test -c Release --no-build --no-restore --logger:\"xunit;LogFilePath=/TestResults/Unit/Notificaciones.Testing.Unit.xml\" Notificaciones.Testing.Unit")
+				    }
+			    }
+			    stage("Acceptance") {
+				    steps {				        
+						sh("docker run -d --rm -e ACCEPT_EULA=Y -e SA_PASSWORD=34B1dKdXzoUB -p 1444:1433 --name db-extractaciones-container microsoft/mssql-server-linux:latest")
+					    sleep 15
+						sh("docker run --rm --link db-extractaciones-container:db-extractaciones -v /var/run/docker.sock:/var/run/docker.sock -v ${VOLUMEPATH}:/TestResults/Acceptance --env ASPNETCORE_ENVIRONMENT=Production --name build-extractaciones-container ${props.IMAGE_NAME}:build bash applymodel.sh")
+						sh("docker stop db-extractaciones-container")
+				    }
+			    }
+			    stage ("Contract"){    
+				    steps {
+				        sh("docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${VOLUMEPATH}:/TestResults/Contract ${props.APP_NAME}:build dotnet test -c Release --no-build --no-restore --logger:\"xunit;LogFilePath=/TestResults/Contract/Extractaciones.Testing.Contract.Provider.xml\" Extractaciones.Testing.Contract.Provider")
+						sh("docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${VOLUMEPATH}:/TestResults/Contract ${props.APP_NAME}:build dotnet test -c Release --no-build --no-restore --logger:\"xunit;LogFilePath=/TestResults/Contract/Extractaciones.Testing.Contract.Consumer.xml\" Extractaciones.Testing.Contract.Consumer")
+				    }
+			    }
+			}
+			post{
+				always{
+					step([$class: 'XUnitBuilder', thresholds: [[$class: 'FailedThreshold', unstableThreshold: '1']], tools: [[$class: 'XUnitDotNetTestType', pattern: '**/extractacionesLogs/*.xml']]])
+				}
+			}
+		}
+		
+		stage("Build Runtime Image"){			
+			steps {
+                sh("docker build --force-rm -t ${props.APP_NAME}:${VERSION} --build-arg baseimage=${props.APP_NAME}:build -f ${props.SOURCE}/Dockerfile .")
+
+				zip zipFile: "${props.APP_NAME}-${VERSION}-config.zip", dir: 'build.config/', archive: true
+				zip zipFile: "${props.APP_NAME}-${VERSION}-flyway.zip", dir: 'build.migrations/', archive: true
+            }
+		}
+
+		stage('Publish Snapshot'){
+			when {
+				expression { params.ES_CANDIDATO == false }
+			}
+			steps {
+				script {
+   					echo "create tag ${VERSION}"
+					def repository = "${props.DOCKER_REPO}/snapshot" 
+					def ImageName = "${repository}/${props.APP_NAME}:${VERSION}"
+					sh("docker tag ${props.APP_NAME}:${VERSION} ${ImageName}")
+					// Step 2: Create an Artifactory Docker instance:
+					def DockerSnapshot = Artifactory.docker server: server
+					def buildDocker1 = DockerSnapshot.push "${ImageName}", "${repository}/"
+					def uploadSpec = """{
+		  				"files": [
+		    				{
+		      					"pattern": "${props.APP_NAME}-${VERSION}-*.zip",
+		      					"target": "${props.REPO_NAME}-generic-local/snapshot/ar/com/supervielle/${props.APP_NAME}/${VERSION}/"
+		    				}
+		  				]
+					}"""
+					buildGeneric1 = server.upload spec: uploadSpec
+					buildGeneric1.append buildDocker1
+					server.publishBuildInfo buildGeneric1
+				}
+			}
+		}
+
+		stage('Publish Release'){
+			when {
+				expression { params.ES_CANDIDATO == true }
+			}
+			steps {
+				script {
+   					def repository = "${props.DOCKER_REPO}/release" 
+					def ImageName = "${repository}/${props.APP_NAME}:${VERSION}"
+					echo "create tag ${VERSION}"					
+					sh("docker tag ${props.APP_NAME}:${VERSION} ${ImageName}")
+					// Step 2: Create an Artifactory Docker instance:
+					def DockerSnapshot = Artifactory.docker server: server
+					def buildDocker1 = DockerSnapshot.push "${ImageName}", "${repository}/"					
+					def uploadSpec = """{
+		  				"files": [
+		    				{
+		      					"pattern": "${props.APP_NAME}-${VERSION}-*.zip",
+		      					"target": "${props.REPO_NAME}-generic-local/release/ar/com/supervielle/${props.APP_NAME}/${VERSION}/"
+		    				}
+		  				]
+					}"""
+					buildGeneric1 = server.upload spec: uploadSpec
+					buildGeneric1.append buildDocker1
+					server.publishBuildInfo buildGeneric1
+				}
+			}
+		}		
+
+		stage('Deploy Develop') {
+            when {
+                expression { true }
+            }
+			steps {
+                script {
+                    step([$class: "RundeckNotifier",
+                        includeRundeckLogs: true,
+                        jobId: "fc2ed205-123d-480a-ba6d-6e822c8dab3e",
+                        nodeFilters: "",
+                        options: """
+                                Version=${VERSION}
+                                Repository=${props.REPO_NAME}
+                                Phases=snapshot
+                                Application=${props.APP_NAME}
+                                """,
+                        rundeckInstance: "rundeck_extractaciones",
+                        shouldFailTheBuild: true,
+                        shouldWaitForRundeckJob: true,
+                        tags: "",
+                        tailLog: true])
+  				}
+            }
+        }
+		stage('Check Service'){
+			steps {
+				script {
+					def returnCode = sh returnStatus: true, script: "wget \"http://extractaciones.k8sds.gscorp.ad/health\""
+				    if (returnCode != 0){
+				        error "El servicio no responde"
+				    }
+				}
+			}
+		}
+	}
+}
